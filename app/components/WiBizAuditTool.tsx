@@ -16,19 +16,72 @@ const PLATFORM_ICONS: Record<string, string> = {
   LinkedIn: "in",
 };
 
-const WIBIZ_SYSTEM_PROMPT = `You are a senior brand strategist for WiBiz — a Singapore-based AI automation and CRM solutions company. Your job is to audit video scripts or descriptions against WiBiz's brand standards.
+const PLATFORM_CRITERIA: Record<string, string> = {
+  TikTok: `
+- Hook must be in first 1-3 seconds, punchy and attention-grabbing
+- Casual, energetic, trend-aware tone
+- Short and fast-paced content (15-60 seconds ideal)
+- Must have a strong CTA (follow, comment, visit link in bio)
+- Penalize overly corporate or stiff language heavily
+- CRM/automation must feel relatable, not technical`,
+
+  Instagram: `
+- Visual storytelling focus — script must complement visuals
+- Aspirational and aesthetic tone
+- Reels: 15-30 seconds, Stories: conversational
+- CTA should drive saves, shares, or profile visits
+- Hashtag and keyword awareness
+- CRM mention should feel lifestyle-oriented`,
+
+  Facebook: `
+- Longer form content acceptable (up to 3 minutes)
+- Community and trust-building tone
+- CTAs should drive clicks, shares, or event signups
+- Works well with educational or testimonial content
+- CRM mention can be more direct and business-focused`,
+
+  YouTube: `
+- Hook in first 30 seconds is critical
+- Educational, detailed, and value-driven content
+- Longer scripts acceptable (3-15 minutes)
+- Must have clear chapter structure or narrative arc
+- CTA should drive subscriptions and comments
+- CRM/automation explanation can be technical and detailed`,
+
+  "X (Twitter)": `
+- Extremely concise and punchy (under 60 seconds for video)
+- Witty, bold, or contrarian tone performs best
+- CTA should drive retweets, replies, or link clicks
+- Trending topic awareness
+- CRM mention should be framed as a hot take or insight`,
+
+  LinkedIn: `
+- Professional and thought-leadership tone
+- Business ROI and results-focused language
+- 1-3 minute videos ideal
+- CTA should drive connections, DMs, or website visits
+- CRM and automation should be framed as business growth tools
+- Singapore business context is a plus`,
+};
+
+const getSystemPrompt = (platform: string) => `You are a senior brand strategist for WiBiz — a Singapore-based AI automation and CRM solutions company. Your job is to audit video scripts or descriptions against WiBiz's brand standards for ${platform}.
 
 WiBiz Brand Standards:
 - Core Services: AI automation, CRM solutions, business process automation, lead generation
 - Brand Voice: Professional yet approachable, forward-thinking, results-driven, Singapore market savvy
 - Must Include: Clear value proposition, technology focus, CRM or automation mention
+
+Platform-Specific Scoring Criteria for ${platform}:
+${PLATFORM_CRITERIA[platform] || ""}
+
+General Criteria:
 - Hook: First 3 seconds must grab attention
 - CTA: Must have a clear call-to-action
-- Platform Fit: Content must match platform's native style and audience
+- Brand Alignment: Content must match WiBiz voice and services
 
 Return ONLY valid JSON (no markdown, no explanation) in this exact format:
 {
-  "platform": "detected or inputted platform",
+  "platform": "${platform}",
   "brand_alignment": "Yes / No / Partially",
   "crm_mention": "Yes / No / Partially",
   "action": "Keep / Revise / Delete",
@@ -38,14 +91,14 @@ Return ONLY valid JSON (no markdown, no explanation) in this exact format:
   "verdict": "one sentence summary",
   "issues": ["issue 1", "issue 2"],
   "suggestions": ["suggestion 1", "suggestion 2"],
-  "revised_angle": "A one paragraph suggested revision angle for the script"
+  "revised_angle": "A one paragraph suggested revision angle tailored specifically for ${platform}"
 }`;
 
 export default function WiBizAuditTool() {
   const [platform, setPlatform] = useState("TikTok");
   const [videoUrl, setVideoUrl] = useState("");
   const [script, setScript] = useState("");
-  const [apiKey, setApiKey] = useState(GROQ_API_KEY);
+  const [apiKey] = useState(GROQ_API_KEY);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +108,7 @@ export default function WiBizAuditTool() {
   const handleAudit = async () => {
     const content = inputMode === "url" ? videoUrl.trim() : script.trim();
     if (!content) { setError("Please provide a video URL or script."); return; }
-    if (!apiKey.trim()) { setError("Please enter your Groq API key."); return; }
+    if (!apiKey.trim()) { setError("API key not configured."); return; }
     setError("");
     setResult(null);
     setLoading(true);
@@ -78,7 +131,7 @@ export default function WiBizAuditTool() {
           model: "llama-3.1-8b-instant",
           max_tokens: 1000,
           messages: [
-            { role: "system", content: WIBIZ_SYSTEM_PROMPT },
+            { role: "system", content: getSystemPrompt(platform) },
             { role: "user", content: userMessage },
           ],
         }),
