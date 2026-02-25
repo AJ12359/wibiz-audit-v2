@@ -16,6 +16,17 @@ const PLATFORM_ICONS: Record<string, string> = {
   LinkedIn: "in",
 };
 
+const META_AD_GUIDELINES = `
+Meta Ad Guidelines Check (apply only for Instagram and Facebook):
+- No misleading claims or exaggerated results
+- No before/after imagery implications in script
+- No direct commands without context (e.g. "Click now" alone is not enough)
+- No discrimination in targeting language
+- Must have clear advertiser identity (WiBiz must be identifiable)
+- Financial or business claims must be accurate and substantiated
+- No sensationalized language (e.g. "guaranteed", "100% success")
+- CTA must be clear but not manipulative`;
+
 const PLATFORM_CRITERIA: Record<string, string> = {
   TikTok: `
 - Hook must be in first 1-3 seconds, punchy and attention-grabbing
@@ -31,14 +42,16 @@ const PLATFORM_CRITERIA: Record<string, string> = {
 - Reels: 15-30 seconds, Stories: conversational
 - CTA should drive saves, shares, or profile visits
 - Hashtag and keyword awareness
-- CRM mention should feel lifestyle-oriented`,
+- CRM mention should feel lifestyle-oriented
+${META_AD_GUIDELINES}`,
 
   Facebook: `
 - Longer form content acceptable (up to 3 minutes)
 - Community and trust-building tone
 - CTAs should drive clicks, shares, or event signups
 - Works well with educational or testimonial content
-- CRM mention can be more direct and business-focused`,
+- CRM mention can be more direct and business-focused
+${META_AD_GUIDELINES}`,
 
   YouTube: `
 - Hook in first 30 seconds is critical
@@ -64,7 +77,9 @@ const PLATFORM_CRITERIA: Record<string, string> = {
 - Singapore business context is a plus`,
 };
 
-const getSystemPrompt = (platform: string) => `You are a senior brand strategist for WiBiz — a Singapore-based AI automation and CRM solutions company. Your job is to audit video scripts or descriptions against WiBiz's brand standards for ${platform}.
+const getSystemPrompt = (platform: string) => {
+  const isMeta = platform === "Instagram" || platform === "Facebook";
+  return `You are a senior brand strategist for WiBiz — a Singapore-based AI automation and CRM solutions company. Your job is to audit video scripts or descriptions against WiBiz's brand standards for ${platform}.
 
 WiBiz Brand Standards:
 - Core Services: AI automation, CRM solutions, business process automation, lead generation
@@ -91,8 +106,10 @@ Return ONLY valid JSON (no markdown, no explanation) in this exact format:
   "verdict": "one sentence summary",
   "issues": ["issue 1", "issue 2"],
   "suggestions": ["suggestion 1", "suggestion 2"],
-  "revised_angle": "A one paragraph suggested revision angle tailored specifically for ${platform}"
+  "revised_angle": "A one paragraph suggested revision angle tailored specifically for ${platform}"${isMeta ? `,
+  "meta_ad_compliant": "Yes / No / Partially"` : ""}
 }`;
+};
 
 export default function WiBizAuditTool() {
   const [platform, setPlatform] = useState("TikTok");
@@ -104,6 +121,8 @@ export default function WiBizAuditTool() {
   const [error, setError] = useState("");
   const [inputMode, setInputMode] = useState("script");
   const [step, setStep] = useState("");
+
+  const isMeta = platform === "Instagram" || platform === "Facebook";
 
   const handleAudit = async () => {
     const content = inputMode === "url" ? videoUrl.trim() : script.trim();
@@ -172,10 +191,20 @@ export default function WiBizAuditTool() {
     return "#ff1744";
   };
 
+  const getMetaColor = (val: string) => {
+    if (val === "Yes") return "#00e676";
+    if (val === "Partially") return "#ffd600";
+    if (val === "No") return "#ff1744";
+    return "#4a6072";
+  };
+
   const ds = result ? getDecisionStyle(result.action) : {};
+  const resultIsMeta = result?.platform === "Instagram" || result?.platform === "Facebook";
+  const gridCols = resultIsMeta ? "1fr 1fr 1fr 1fr 1fr" : "1fr 1fr 1fr 1fr";
 
   return (
     <div style={{ minHeight: "100vh", background: "#080c10", color: "#e8edf2", fontFamily: "'DM Mono', 'Courier New', monospace", padding: "0" }}>
+      {/* Header */}
       <div style={{ borderBottom: "1px solid #1a2332", padding: "20px 32px", display: "flex", alignItems: "center", gap: "16px", background: "rgba(255,255,255,0.02)" }}>
         <div style={{ width: 36, height: 36, background: "linear-gradient(135deg, #0ea5e9, #6366f1)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: "bold", color: "#fff" }}>W</div>
         <div>
@@ -186,6 +215,8 @@ export default function WiBizAuditTool() {
       </div>
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "36px 24px" }}>
+
+        {/* Platform */}
         <div style={{ marginBottom: 28 }}>
           <label style={{ display: "block", fontSize: 11, color: "#4a6072", letterSpacing: "0.12em", marginBottom: 10 }}>TARGET PLATFORM</label>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -195,8 +226,14 @@ export default function WiBizAuditTool() {
               </button>
             ))}
           </div>
+          {isMeta && (
+            <div style={{ marginTop: 8, fontSize: 11, color: "#6366f1", letterSpacing: "0.05em" }}>
+              ✦ Meta Ad Guidelines check enabled for {platform}
+            </div>
+          )}
         </div>
 
+        {/* Input Mode Toggle */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "inline-flex", border: "1px solid #1a2d3f", borderRadius: 8, overflow: "hidden" }}>
             {["script", "url"].map(mode => (
@@ -207,6 +244,7 @@ export default function WiBizAuditTool() {
           </div>
         </div>
 
+        {/* Input Area */}
         {inputMode === "script" ? (
           <div style={{ marginBottom: 24 }}>
             <label style={{ display: "block", fontSize: 11, color: "#4a6072", letterSpacing: "0.12em", marginBottom: 8 }}>VIDEO SCRIPT / CAPTION / DESCRIPTION</label>
@@ -220,22 +258,27 @@ export default function WiBizAuditTool() {
           </div>
         )}
 
+        {/* Error */}
         {error && (
           <div style={{ background: "rgba(255,23,68,0.08)", border: "1px solid #ff1744", borderRadius: 8, padding: "12px 16px", marginBottom: 20, color: "#ff6b6b", fontSize: 12 }}>
             ⚠ {error}
           </div>
         )}
 
+        {/* Submit */}
         <button onClick={handleAudit} disabled={loading} style={{ width: "100%", padding: "14px", background: loading ? "#0c1520" : "linear-gradient(135deg, #0ea5e9, #6366f1)", border: loading ? "1px solid #1a2d3f" : "none", borderRadius: 8, color: loading ? "#4a6072" : "#fff", fontSize: 13, fontFamily: "inherit", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", cursor: loading ? "not-allowed" : "pointer" }}>
           {loading ? `⟳ ${step}` : "⚡ Run Brand Audit"}
         </button>
 
+        {/* Results */}
         {result && (
           <div style={{ marginTop: 40 }}>
             <div style={{ fontSize: 11, color: "#4a6072", letterSpacing: "0.15em", marginBottom: 20, borderBottom: "1px solid #1a2d3f", paddingBottom: 12 }}>
               AUDIT RESULTS — {(result.platform || platform).toUpperCase()}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+
+            {/* Score Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 12, marginBottom: 20 }}>
               <div style={{ background: "#0c1520", border: "1px solid #1a2d3f", borderRadius: 10, padding: "18px 16px", textAlign: "center" }}>
                 <div style={{ fontSize: 10, color: "#4a6072", letterSpacing: "0.1em", marginBottom: 8 }}>BRAND SCORE</div>
                 <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1, color: getScoreColor(result.score) }}>{result.score}</div>
@@ -254,11 +297,21 @@ export default function WiBizAuditTool() {
                 <div style={{ fontSize: 14, fontWeight: 700, color: result.crm_mention === "Yes" ? "#00e676" : result.crm_mention === "Partially" ? "#ffd600" : "#ff1744" }}>{result.crm_mention || "—"}</div>
                 <div style={{ fontSize: 10, marginTop: 4, color: result.cta_present ? "#00e676" : "#ff1744" }}>CTA: {result.cta_present ? "✓ Present" : "✕ Missing"}</div>
               </div>
+              {resultIsMeta && (
+                <div style={{ background: "rgba(99,102,241,0.08)", border: "1px solid #1e2040", borderRadius: 10, padding: "18px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 10, color: "#6366f1", letterSpacing: "0.1em", marginBottom: 8 }}>META AD</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: getMetaColor(result.meta_ad_compliant) }}>{result.meta_ad_compliant || "N/A"}</div>
+                </div>
+              )}
             </div>
+
+            {/* Verdict */}
             <div style={{ background: "#0c1520", border: "1px solid #1a2d3f", borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
               <div style={{ fontSize: 10, color: "#4a6072", letterSpacing: "0.1em", marginBottom: 6 }}>VERDICT</div>
               <div style={{ fontSize: 14, color: "#b0c4d4", lineHeight: 1.6 }}>{result.verdict}</div>
             </div>
+
+            {/* Issues & Suggestions */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
               {result.issues?.length > 0 && (
                 <div style={{ background: "rgba(255,23,68,0.04)", border: "1px solid #2a1a1a", borderRadius: 10, padding: "16px 20px" }}>
@@ -277,6 +330,8 @@ export default function WiBizAuditTool() {
                 </div>
               )}
             </div>
+
+            {/* Revised Angle */}
             {result.revised_angle && (
               <div style={{ background: "rgba(99,102,241,0.06)", border: "1px solid #1e2040", borderRadius: 10, padding: "18px 20px" }}>
                 <div style={{ fontSize: 10, color: "#6366f1", letterSpacing: "0.1em", marginBottom: 10 }}>✎ SUGGESTED REVISION ANGLE</div>
